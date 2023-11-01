@@ -1,6 +1,29 @@
 package ru.rctikk.ml.service;
 
+import org.deeplearning4j.datasets.iterator.impl.EmnistDataSetIterator;
+import org.deeplearning4j.datasets.iterator.impl.MnistDataSetIterator;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.layers.DenseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInit;
+import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.eclipse.deeplearning4j.resources.utils.EMnistSet;
+import org.nd4j.evaluation.classification.Evaluation;
+import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
+import org.nd4j.linalg.learning.config.Nadam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
+import ru.rctikk.ml.entity.Button;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public class ButtonML {
+    private ButtonService buttonService;
     final int numRows = 28;
     final int numColumns = 28;
     int outputNum = 2; // number of output classes
@@ -9,13 +32,14 @@ public class ButtonML {
     int numEpochs = 15; // number of epochs to perform
     double rate = 0.0015; // learning rate
 
-    public void compute() {
+    public void compute() throws IOException {
 
-        DataSetIterator mnistTrain = new MnistDataSetIterator(batchSize, true, rngSeed);
+        Set<Button> dataset = new HashSet<>(buttonService.getDateSet());
+        DataSetIterator mnistTrain = new EmnistDataSetIterator(EMnistSet.COMPLETE,  rngSeed, true);
         DataSetIterator mnistTest = new MnistDataSetIterator(batchSize, false, rngSeed);
 
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                .seed(rngSeed) //include a random seed for reproducibility
+                .seed(rngSeed)
                 .activation(Activation.RELU)
                 .weightInit(WeightInit.XAVIER)
                 .updater(new Nadam())
@@ -29,7 +53,7 @@ public class ButtonML {
                         .nIn(500)
                         .nOut(100)
                         .build())
-                .layer(new OutputLayer.Builder(LossFunction.NEGATIVELOGLIKELIHOOD)
+                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.NEGATIVELOGLIKELIHOOD)
                         .activation(Activation.SOFTMAX)
                         .nOut(outputNum)
                         .build())
@@ -39,15 +63,10 @@ public class ButtonML {
         model.init();
         model.setListeners(new ScoreIterationListener(5));
 
-        log.info("Train model....");
         model.fit(mnistTrain, numEpochs);
 
-        log.info("Evaluate model....");
+
         Evaluation eval = model.evaluate(mnistTest);
-
-        log.info(eval.stats());
-        log.info("****************Example finished********************");
-
     }
 
 }
